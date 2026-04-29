@@ -27,48 +27,48 @@ Open [http://localhost:5173](http://localhost:5173)
 
 ---
 
-## Docker 部署
+## Docker Deployment
 
-### 本地构建与运行
+### Build and Run Locally
 
 ```bash
-# 构建镜像
+# Build the image
 docker build -t effort-tracker .
 
-# 启动（数据持久化到 ./data 目录）
+# Start (SQLite data persisted to ./data)
 docker compose up -d
 ```
 
-访问 [http://localhost:3001](http://localhost:3001)
+Open [http://localhost:3001](http://localhost:3001)
 
-### 环境变量
+### Environment Variables
 
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `PORT` | `3001` | 服务监听端口 |
-| `NODE_ENV` | `production` | 运行模式 |
-| `CORS_ORIGIN` | `*` | 允许的 CORS 来源，生产环境建议锁定为具体域名 |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3001` | Server listen port |
+| `NODE_ENV` | `production` | Runtime mode |
+| `CORS_ORIGIN` | `*` | Allowed CORS origin — lock to a specific domain in production |
 
-### 数据持久化
+### Data Persistence
 
-SQLite 数据库文件位于容器内 `/app/data/effort.db`，通过 Docker volume 挂载到宿主机：
+The SQLite database lives at `/app/data/effort.db` inside the container and is bind-mounted to the host via Docker volume:
 
 ```bash
-# docker-compose.yml 已配置，数据目录为项目根目录下的 ./data
-# 手动备份
+# ./data is already configured in docker-compose.yml
+# Manual backup
 cp ./data/effort.db ./data/effort-backup-$(date +%Y%m%d).db
 ```
 
-### 阿里云企业内网部署
+### Enterprise Intranet Deployment (Alibaba Cloud)
 
-详见 [docs/deploy-aliyun-intranet.md](docs/deploy-aliyun-intranet.md)，涵盖：
+See [docs/deploy-aliyun-intranet.md](docs/deploy-aliyun-intranet.md) for the full guide, covering:
 
-- ECS + VPC 内网隔离配置
-- ACR 私有镜像仓库推送流程
-- Nginx 反向代理 + IP 白名单
-- 安全组规则（无公网入站）
-- SQLite 定时备份到 OSS（内网 Endpoint）
-- 合规检查清单
+- ECS + VPC private network isolation
+- Pushing images to ACR (private registry)
+- Nginx reverse proxy with IP allowlist
+- Security group rules (no public inbound)
+- Scheduled SQLite backup to OSS via VPC endpoint
+- Compliance checklist
 
 ---
 
@@ -186,7 +186,7 @@ ET/
 │   └── effort.db
 │
 ├── docs/
-│   └── deploy-aliyun-intranet.md  # 阿里云内网部署指南
+│   └── deploy-aliyun-intranet.md  # Alibaba Cloud intranet deployment guide
 │
 ├── Dockerfile                # Multi-stage build (Vite build → Bun runner)
 ├── docker-compose.yml        # Local testing / single-host deployment
