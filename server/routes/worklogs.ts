@@ -98,5 +98,50 @@ export async function worklogRoutesAsync(req: Request, url: URL): Promise<Respon
     return Response.json({ data: { parsed, matched_project: bestScore > 20 ? matched_project : null, projects } });
   }
 
+  if (req.method === "POST" && path === "/api/worklogs/batch") {
+    const body = await req.json() as {
+      rows: Array<{ colleague_name: string; project_name: string; hours: number; log_date: string; description?: string }>;
+    };
+    const projects = db.query("SELECT id, name FROM projects").all() as Array<{ id: number; name: string }>;
+
+    const matchProjectId = (projectName: string): number | null => {
+      const name = projectName.toLowerCase();
+      let bestId: number | null = null;
+      let bestScore = 0;
+      for (const p of projects) {
+        const pn = p.name.toLowerCase();
+        let score = 0;
+        if (pn === name) score = 200;
+        else if (pn.includes(name) || name.includes(pn)) score = 100;
+        else for (const ch of name) if (pn.includes(ch)) score += 5;
+        if (score > bestScore) { bestScore = score; bestId = p.id; }
+      }
+      return bestScore >= 20 ? bestId : null;
+    };
+
+    const inserted: number[] = [];
+    const failed: Array<{ row: typeof body.rows[0]; reason: string }> = [];
+
+    const stmt = db.prepare(
+      "INSERT INTO work_logs (colleague_name, project_id, hours, log_date, description, raw_input) VALUES (?, ?, ?, ?, ?, ?)"
+    );
+
+    for (const row of body.rows) {
+      const projectId = matchProjectId(row.project_name ?? "");
+      if (!projectId) {
+        failed.push({ row, reason: `Project not found: ${row.project_name}` });
+        continue;
+      }
+      try {
+        const r = stmt.run(row.colleague_name, projectId, row.hours, row.log_date, row.description ?? "", "import");
+        inserted.push(Number(r.lastInsertRowid));
+      } catch (err) {
+        failed.push({ row, reason: err instanceof Error ? err.message : "unknown" });
+      }
+    }
+
+    return Response.json({ data: { inserted: inserted.length, failed } }, { status: 201 });
+  }
+
   return null;
 }

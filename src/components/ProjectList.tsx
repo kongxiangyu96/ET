@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Plus, CalendarDays, Clock, Users, TrendingUp, Edit2, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,19 +15,28 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDate, formatHours, getDaysUntilDeadline } from "@/lib/utils";
 import type { Project, ProjectType, ProjectStatus } from "@/types";
 
-const STATUS_LABELS: Record<ProjectStatus, string> = { active: "进行中", completed: "已完成", paused: "已暂停" };
-const STATUS_VARIANTS: Record<ProjectStatus, "success" | "info" | "warning"> = { active: "info", completed: "success", paused: "warning" };
-
 interface Form { name: string; type: ProjectType; description: string; deadline: string; completion: number; status: ProjectStatus; }
 const defaultForm: Form = { name: "", type: "business", description: "", deadline: "", completion: 0, status: "active" };
 
 export function ProjectList({ projects, loading, onRefresh }: { projects: Project[] | null; loading: boolean; onRefresh: () => void }) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Project | null>(null);
   const [form, setForm] = useState<Form>(defaultForm);
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<"all" | ProjectType>("all");
+
+  const STATUS_LABELS: Record<ProjectStatus, string> = {
+    active: t("project.statusActive"),
+    completed: t("project.statusCompleted"),
+    paused: t("project.statusPaused"),
+  };
+  const STATUS_VARIANTS: Record<ProjectStatus, "success" | "info" | "warning"> = {
+    active: "info",
+    completed: "success",
+    paused: "warning",
+  };
 
   const filtered = projects?.filter(p => filter === "all" || p.type === filter);
 
@@ -38,28 +48,42 @@ export function ProjectList({ projects, loading, onRefresh }: { projects: Projec
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) { toast({ title: "请输入项目名称", variant: "destructive" }); return; }
+    if (!form.name.trim()) { toast({ title: t("project.nameRequired"), variant: "destructive" }); return; }
     setSaving(true);
     try {
-      if (editTarget) { await api.patch(`/projects/${editTarget.id}`, form); toast({ title: "项目已更新" }); }
-      else { await api.post("/projects", form); toast({ title: "项目已创建" }); }
-      setOpen(false); onRefresh();
-    } catch (e) { toast({ title: "操作失败", description: e instanceof Error ? e.message : "未知错误", variant: "destructive" }); }
-    finally { setSaving(false); }
+      if (editTarget) {
+        await api.patch(`/projects/${editTarget.id}`, form);
+        toast({ title: t("project.updateSuccess") });
+      } else {
+        await api.post("/projects", form);
+        toast({ title: t("project.createSuccess") });
+      }
+      setOpen(false);
+      onRefresh();
+    } catch (e) {
+      toast({ title: t("project.operationError"), description: e instanceof Error ? e.message : t("common.unknown"), variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (p: Project) => {
-    if (!confirm(`确认删除项目「${p.name}」？关联工时记录也会被删除。`)) return;
-    try { await api.delete(`/projects/${p.id}`); toast({ title: "项目已删除" }); onRefresh(); }
-    catch (e) { toast({ title: "删除失败", description: e instanceof Error ? e.message : "未知错误", variant: "destructive" }); }
+    if (!confirm(t("project.deleteConfirm", { name: p.name }))) return;
+    try {
+      await api.delete(`/projects/${p.id}`);
+      toast({ title: t("project.deleteSuccess") });
+      onRefresh();
+    } catch (e) {
+      toast({ title: t("project.deleteError"), description: e instanceof Error ? e.message : t("common.unknown"), variant: "destructive" });
+    }
   };
 
   const deadlineBadge = (dl: string | null) => {
     if (!dl) return null;
     const days = getDaysUntilDeadline(dl);
     if (days === null) return null;
-    if (days < 0) return <Badge variant="destructive">已逾期 {Math.abs(days)}天</Badge>;
-    if (days <= 7) return <Badge variant="warning">剩余 {days}天</Badge>;
+    if (days < 0) return <Badge variant="destructive">{t("project.overdue", { days: Math.abs(days) })}</Badge>;
+    if (days <= 7) return <Badge variant="warning">{t("project.daysLeft", { days })}</Badge>;
     return <Badge variant="outline">{formatDate(dl)}</Badge>;
   };
 
@@ -69,16 +93,20 @@ export function ProjectList({ projects, loading, onRefresh }: { projects: Projec
         <div className="flex gap-2">
           {(["all", "business", "innovation"] as const).map(f => (
             <Button key={f} variant={filter === f ? "default" : "outline"} size="sm" onClick={() => setFilter(f)}>
-              {f === "all" ? "全部" : f === "business" ? "业务项目" : "创新项目"}
+              {f === "all" ? t("project.filterAll") : f === "business" ? t("project.filterBusiness") : t("project.filterInnovation")}
             </Button>
           ))}
         </div>
-        <Button size="sm" onClick={openCreate} className="gap-1.5"><Plus className="h-4 w-4" />新增项目</Button>
+        <Button size="sm" onClick={openCreate} className="gap-1.5">
+          <Plus className="h-4 w-4" />{t("project.addNew")}
+        </Button>
       </div>
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1,2,3,4].map(i => <Card key={i}><CardContent className="p-4"><div className="h-24 bg-muted animate-pulse rounded" /></CardContent></Card>)}
+          {[1, 2, 3, 4].map(i => (
+            <Card key={i}><CardContent className="p-4"><div className="h-24 bg-muted animate-pulse rounded" /></CardContent></Card>
+          ))}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -94,28 +122,49 @@ export function ProjectList({ projects, loading, onRefresh }: { projects: Projec
                     </div>
                   </div>
                   <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}><Edit2 className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(p)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}>
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(p)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="px-4 pb-4 space-y-3">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant={p.type === "business" ? "info" : "purple"}>{p.type === "business" ? "业务项目" : "创新项目"}</Badge>
+                  <Badge variant={p.type === "business" ? "info" : "purple"}>
+                    {p.type === "business" ? t("project.filterBusiness") : t("project.filterInnovation")}
+                  </Badge>
                   <Badge variant={STATUS_VARIANTS[p.status]}>{STATUS_LABELS[p.status]}</Badge>
                   {deadlineBadge(p.deadline)}
                 </div>
                 <div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
-                    <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" />完成度</span>
+                    <span className="flex items-center gap-1">
+                      <TrendingUp className="h-3 w-3" />{t("project.progressLabel")}
+                    </span>
                     <span className="font-medium text-foreground">{p.completion}%</span>
                   </div>
-                  <Progress value={p.completion} className={`h-1.5 ${p.type === "business" ? "[&>div]:bg-blue-500" : "[&>div]:bg-purple-500"}`} />
+                  <Progress
+                    value={p.completion}
+                    className={`h-1.5 ${p.type === "business" ? "[&>div]:bg-blue-500" : "[&>div]:bg-purple-500"}`}
+                  />
                 </div>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatHours(p.total_hours ?? 0)} 工时</span>
-                  {(p.member_count ?? 0) > 0 && <span className="flex items-center gap-1"><Users className="h-3 w-3" />{p.member_count} 人参与</span>}
-                  {p.deadline && <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />{formatDate(p.deadline)}</span>}
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />{t("project.totalHours", { value: formatHours(p.total_hours ?? 0) })}
+                  </span>
+                  {(p.member_count ?? 0) > 0 && (
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3 w-3" />{t("project.members", { count: p.member_count })}
+                    </span>
+                  )}
+                  {p.deadline && (
+                    <span className="flex items-center gap-1">
+                      <CalendarDays className="h-3 w-3" />{formatDate(p.deadline)}
+                    </span>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -125,50 +174,62 @@ export function ProjectList({ projects, loading, onRefresh }: { projects: Projec
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{editTarget ? "编辑项目" : "新增项目"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editTarget ? t("project.editTitle") : t("project.createTitle")}</DialogTitle>
+          </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>项目名称 *</Label>
-              <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="请输入项目名称" />
+              <Label>{t("project.name")}</Label>
+              <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder={t("project.namePlaceholder")} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>项目类型 *</Label>
+                <Label>{t("project.type")}</Label>
                 <Select value={form.type} onValueChange={v => setForm({ ...form, type: v as ProjectType })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="business">业务项目</SelectItem><SelectItem value="innovation">创新项目</SelectItem></SelectContent>
+                  <SelectContent>
+                    <SelectItem value="business">{t("project.filterBusiness")}</SelectItem>
+                    <SelectItem value="innovation">{t("project.filterInnovation")}</SelectItem>
+                  </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>状态</Label>
+                <Label>{t("project.status")}</Label>
                 <Select value={form.status} onValueChange={v => setForm({ ...form, status: v as ProjectStatus })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">进行中</SelectItem>
-                    <SelectItem value="completed">已完成</SelectItem>
-                    <SelectItem value="paused">已暂停</SelectItem>
+                    <SelectItem value="active">{t("project.statusActive")}</SelectItem>
+                    <SelectItem value="completed">{t("project.statusCompleted")}</SelectItem>
+                    <SelectItem value="paused">{t("project.statusPaused")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>项目描述</Label>
+              <Label>{t("project.description")}</Label>
               <Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="min-h-[60px]" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>截止日期</Label>
+                <Label>{t("project.deadline")}</Label>
                 <Input type="date" value={form.deadline} onChange={e => setForm({ ...form, deadline: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label>完成度 ({form.completion}%)</Label>
-                <Input type="range" min={0} max={100} step={5} value={form.completion} onChange={e => setForm({ ...form, completion: parseInt(e.target.value) })} className="h-10" />
+                <Label>{t("project.completion", { value: form.completion })}</Label>
+                <Input
+                  type="range" min={0} max={100} step={5}
+                  value={form.completion}
+                  onChange={e => setForm({ ...form, completion: parseInt(e.target.value) })}
+                  className="h-10"
+                />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
-            <Button onClick={handleSave} disabled={saving}>{saving ? "保存中..." : "保存"}</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>{t("common.cancel")}</Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? t("common.saving") : t("common.save")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
