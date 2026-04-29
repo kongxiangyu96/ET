@@ -27,6 +27,51 @@ Open [http://localhost:5173](http://localhost:5173)
 
 ---
 
+## Docker 部署
+
+### 本地构建与运行
+
+```bash
+# 构建镜像
+docker build -t effort-tracker .
+
+# 启动（数据持久化到 ./data 目录）
+docker compose up -d
+```
+
+访问 [http://localhost:3001](http://localhost:3001)
+
+### 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `PORT` | `3001` | 服务监听端口 |
+| `NODE_ENV` | `production` | 运行模式 |
+| `CORS_ORIGIN` | `*` | 允许的 CORS 来源，生产环境建议锁定为具体域名 |
+
+### 数据持久化
+
+SQLite 数据库文件位于容器内 `/app/data/effort.db`，通过 Docker volume 挂载到宿主机：
+
+```bash
+# docker-compose.yml 已配置，数据目录为项目根目录下的 ./data
+# 手动备份
+cp ./data/effort.db ./data/effort-backup-$(date +%Y%m%d).db
+```
+
+### 阿里云企业内网部署
+
+详见 [docs/deploy-aliyun-intranet.md](docs/deploy-aliyun-intranet.md)，涵盖：
+
+- ECS + VPC 内网隔离配置
+- ACR 私有镜像仓库推送流程
+- Nginx 反向代理 + IP 白名单
+- 安全组规则（无公网入站）
+- SQLite 定时备份到 OSS（内网 Endpoint）
+- 合规检查清单
+
+---
+
 ## Features
 
 ### Four Work Log Entry Modes
@@ -137,9 +182,15 @@ ET/
 │   ├── lib/utils.ts          # Utility functions
 │   └── styles/globals.css    # Tailwind + CSS variables
 │
-├── data/                     # SQLite database (created at runtime)
+├── data/                     # SQLite database (created at runtime, Docker volume mount point)
 │   └── effort.db
 │
+├── docs/
+│   └── deploy-aliyun-intranet.md  # 阿里云内网部署指南
+│
+├── Dockerfile                # Multi-stage build (Vite build → Bun runner)
+├── docker-compose.yml        # Local testing / single-host deployment
+├── .dockerignore
 ├── index.html
 ├── vite.config.ts
 ├── tailwind.config.js
