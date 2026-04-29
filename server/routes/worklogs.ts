@@ -84,7 +84,7 @@ export async function worklogRoutesAsync(req: Request, url: URL): Promise<Respon
     const parsed = parseWorkLog(body.text);
     const projects = db.query("SELECT id, name, type FROM projects").all() as Array<{ id: number; name: string; type: string }>;
 
-    let matched_project = null;
+    let matched_project: { id: number; name: string; type: string } | null = null;
     let bestScore = 0;
     for (const p of projects) {
       const hint = parsed.project_hint.toLowerCase();
