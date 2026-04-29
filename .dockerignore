@@ -1,0 +1,37 @@
+# 依赖和构建产物
+node_modules
+dist
+.bun
+
+# 数据文件（不打入镜像，运行时挂载）
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# 开发配置
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# 编辑器
+.cursor
+.vscode
+.idea
+*.swp
+*.swo
+
+# 文档
+*.md
+!README.md
+
+# 日志
+*.log
+logs/
+
+# 测试
+coverage/

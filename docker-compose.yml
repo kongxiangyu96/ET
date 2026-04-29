@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  effort-tracker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: effort-tracker
+    restart: unless-stopped
+    ports:
+      # 内网部署时改为 127.0.0.1:3001:3001，避免直接暴露公网
+      - "127.0.0.1:3001:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      # 生产环境建议锁定 CORS_ORIGIN 为内网域名
+      # CORS_ORIGIN: "http://your-intranet-domain.corp"
+    volumes:
+      # SQLite 数据持久化到宿主机目录
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/projects"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
